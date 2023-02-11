@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>EV Map Data</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.12.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.12.0/mapbox-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script>
+
+        mapboxgl.accessToken = 'pk.eyJ1Ijoic3dlcnQiLCJhIjoiY2s3bHNtdjF2MDJ1eTNmcGowanU5MHR4ZiJ9.hzhWj9bhgD5itpWAPc3nNA';
+        const map = new mapboxgl.Map({
+            container: 'map', // container ID
+            // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
+            style: 'mapbox://styles/swert/clcs1d19e009g14qh4jbcj1jm', // style URL
+            center: { lng: -99.48299257741193, lat: 40.92230044374887 },
+            zoom: 4.5,// starting zoom,
+            projection: "mercator"
+        });
+
+        map.on('load', () => {
+
+
+            // Promise.all([
+            //     d3.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vRJl3kVNDkwcixR99TBWBAvNtitzbGSSWiED75UD85wyKM0pVPJkeJ8mHTTbNuZB4l1oqPwls9OdfpO/pub?output=csv"),
+            //     fetch("Electric_Retail_Service_Territories.geojson").then(data => data.json())
+            // ]).then(data => {
+            //     console.log('data', data);
+            //     const [sprData, mapData] = data
+            //     const avrPrice = sprData.map(d => +d['Average Price (cents/kWh)'])
+            //     const namesSpr = sprData.map(d => clear(d.Entity))
+            //     const namesMap = [...new Set(mapData.features.map(d => clear(d.properties.NAME)))].sort()
+            //     const intersection = namesSpr.filter(element => namesMap.includes(element));
+            //     // const nonIntersection = namesSpr.filter(element => !namesMap.includes(element));
+            //     console.log('namesMap', namesMap);
+            //     const missed = namesSpr.filter(el => !intersection.includes(el))
+            //     console.log('missed data', new Set(missed));
+            //     //map.getSource("maine").setData(mapData)
+            //     map.setFilter('electric-retail-service-terri-c0krej', [
+            //         'all',
+            //         ['match', ['get', 'NAME'], "PACIFICORP", "red", "gray"],
+            //     ]);
+            // })
+
+            Promise.all([
+                d3.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vRJl3kVNDkwcixR99TBWBAvNtitzbGSSWiED75UD85wyKM0pVPJkeJ8mHTTbNuZB4l1oqPwls9OdfpO/pub?output=csv"),
+            ]).then(data => {
+                console.log('data', data);
+                const [sprData, mapData] = data
+                const avrPrice = sprData.map(d => +d['Average Price (cents/kWh)']).filter(d => !isNaN(d))
+                const namesSpr = sprData.map(d => clear(d.Entity))
+
+                const min = Math.min(...avrPrice)
+                const max = Math.max(...avrPrice)
+
+                console.log('min, max', min, max);
+
+                const myColor = d3.scaleLinear().domain([min, max]).range(["orange", "red"])
+
+                const filtersArray = []
+                sprData
+                    .filter(d => !isNaN(+d['Average Price (cents/kWh)']))
+                    .map(d => {
+                        const filter = [['==', ['get', "NAME"], d.Entity.toUpperCase()], myColor(+d['Average Price (cents/kWh)'])]
+                        filtersArray.push(...filter)
+                    })
+
+                map.setPaintProperty("electric-retail-service-terri-c0krej", "fill-color", [
+                    'case',
+                    ...filtersArray,
+                    "white"
+                ])
+                map.setPaintProperty("electric-retail-service-terri-c0krej", "fill-opacity", 0.5)
+            })
+
+            // Add a data source containing GeoJSON data.
+            map.addSource('maine', {
+                'type': 'geojson',
+                'data': { type: 'FeatureCollection', features: Array(0) }
+            });
+
+            // Add a new layer to visualize the polygon.
+            map.addLayer({
+                'id': 'maine-fill',
+                'type': 'fill',
+                'source': 'maine', // reference the data source
+                'layout': {},
+                'paint': {
+                    'fill-color': '#0080ff', // blue color fill
+                    'fill-opacity': 0.5
+                }
+            });
+            // Add a black outline around the polygon.
+            map.addLayer({
+                'id': 'outline',
+                'type': 'line',
+                'source': 'maine',
+                'layout': {},
+                'paint': {
+                    'line-color': '#000',
+                    'line-width': 1
+                }
+            });
+
+            map.on("click", "maine-fill", e => {
+                console.log('e', e);
+                const features = map.queryRenderedFeatures(e.point);
+                // Limit the number of properties we're displaying for
+                // legibility and performance
+                const displayProperties = [
+                    'type',
+                    'properties',
+                    'id',
+                    'layer',
+                    'source',
+                    'sourceLayer',
+                    'state'
+                ];
+
+                const displayFeatures = features.map((feat) => {
+                    const displayFeat = {};
+                    displayProperties.forEach((prop) => {
+                        displayFeat[prop] = feat[prop];
+                    });
+                    return displayFeat;
+                });
+
+                // Write object as string with an indent of two spaces.
+                document.getElementById('features').innerHTML = JSON.stringify(
+                    displayFeatures,
+                    null,
+                    2
+                );
+            })
+        });
+
+
+        function clear(str) {
+            return str.replaceAll(/[\,\.]/g, " ").replace(/[\s]{2,}/, " ").trim().toLowerCase()
+        }
+
+    </script>
+
+</body>
+
+</html>

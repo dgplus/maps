@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Monthly Savings Driving an EV vs. ICE Vehicle, Five-Year Ownership</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.12.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.12.0/mapbox-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,600,300" rel="stylesheet" type="text/css">
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font: normal 13px/20px 'Open Sans';
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+
+        .popup-main {
+            padding: 5px;
+            margin: 5px;
+        }
+
+        .mapboxgl-map {
+            font: normal 13px/20px 'Open Sans' !important;
+        }
+
+        .map-overlay {
+            position: absolute;
+            width: 30%;
+            top: 0;
+            left: 0;
+            padding: 10px;
+        }
+
+        .map-overlay .map-overlay-inner {
+            background-color: #fff;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .map-overlay label {
+            display: flex;
+            margin: 0 0 10px;
+            width: fit-content;
+        }
+
+        .map-overlay #slider {
+            background-color: transparent;
+            display: inline-block;
+            width: 100%;
+            position: relative;
+            margin: 0;
+            cursor: ew-resize;
+        }
+
+        .square-container {
+            display: flex;
+            width: 100%;
+            flex-direction: row;
+        }
+
+        .square-text {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-left: 10px
+        }
+
+        .square {
+            display: flex;
+            height: 25px;
+            width: 25px;
+        }
+
+        #legend {
+            display: flex;
+            flex-direction: column;
+        }
+
+        h3,
+        h4 {
+            margin: 0;
+        }
+
+        .legend-container {
+            margin: 5px 0 5px 0;
+        }
+
+        .mapboxgl-popup-content {
+            width: 350px !important;
+        }
+
+        #fullscreen {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background-color: #fff;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+            padding: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="mapcontainer">
+        <div id="map"></div>
+        <div class="map-overlay top">
+            <div class="map-overlay-inner">
+                <h3>Monthly Savings Driving an EV vs. ICE Vehicle, Five-Year Ownership</h3>
+                <div class="legend-container">
+                    Est. Savings / Month (DG+)
+                    <div id="legend"></div>
+                </div>
+            </div>
+        </div>
+        <div id="fullscreen">Full screen</div>
+    </div>
+
+    <script>
+        const legendDiv = document.getElementById('legend');
+        const slider = document.getElementById('slider');
+        const sliderValue = document.getElementById('slider-value');
+        const layerName = 'states-layer'
+        const fullscreen = document.getElementById('fullscreen');
+
+        const mainData = {
+            sprData: []
+        }
+
+        mapboxgl.accessToken = 'pk.eyJ1Ijoic3dlcnQiLCJhIjoiY2s3bHNtdjF2MDJ1eTNmcGowanU5MHR4ZiJ9.hzhWj9bhgD5itpWAPc3nNA';
+        const map = new mapboxgl.Map({
+            container: 'map', // container ID
+            // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
+            style: 'mapbox://styles/mapbox/light-v11',
+            center: { lng: -99.48299257741193, lat: 40.92230044374887 },
+            zoom: 3.5,// starting zoom,
+            projection: "mercator"
+        });
+
+        map.on('load', () => {
+
+            map.addSource('states', {
+                'type': 'geojson',
+                'data': { type: 'FeatureCollection', features: Array(0) }
+            });
+
+            // Add a layer showing the state polygons.
+            map.addLayer({
+                'id': 'states-layer',
+                'type': 'fill',
+                'source': 'states',
+                'paint': {
+                    'fill-color': ['get', 'color'],
+                    'fill-outline-color': 'rgba(255, 255, 255, .5)'
+                }
+            });
+
+
+            Promise.all([
+                d3.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vR90dXAvnHG71mHIOBrraneVpmtBQYJCXnsykdsq4GytJ0qVWlaNvHjfHVT1XV_tCDz2_iUW_URmc4g/pub?output=csv"),
+                fetch("base/s_22mr22.json").then(data => data.json())
+            ]).then(data => {
+
+                console.log('data', data);
+                const [sprData, mapData] = data
+                mainData.sprData.push(...sprData)
+
+                const avrPrice = sprData.map(d => +(d['Savings / Month (DG+)'].replace("$", ''))).filter(d => !isNaN(d))
+                const namesSpr = sprData.map(d => d.State)
+                const min = Math.min(...avrPrice)
+                const max = Math.max(...avrPrice)
+                const myColor = d3.scaleLinear().domain([min, max]).range(["#E6F3BA", "#9DBF22"])
+
+                generateLegend(min, max, legendDiv, myColor)
+
+                mapData.features.forEach(el => {
+                    const stateName = el.properties.NAME
+                    const spr = sprData.find(d => d.State.toLowerCase() === stateName.toLowerCase())
+                    if (spr) {
+                        el.properties = {
+                            ...el.properties,
+                            ...spr,
+                            color: myColor(Number(spr['Savings / Month (DG+)'].replace("$", '')))
+                        }
+                    }
+                });
+                const noPR = mapData.features.filter(el => el.properties.NAME !== 'Puerto Rico' && el.properties.NAME !== 'Virgin Islands')
+                map.getSource("states").setData(turf.featureCollection(noPR))
+
+            })
+
+            map.on("click", layerName, e => {
+
+                const props = e.features[0].properties
+                const stateISO = e.features[0].properties.STATE
+                const stateName = e.features[0].properties.State
+
+                const res = mainData.sprData
+                    .find(spr => spr.State === stateISO)
+
+                const text = `
+                        <div class="popup-main">
+                            <h2>${stateName}</h2>
+                            <div><b>Savings / Month (DG+)</b>: ${props['Savings / Month (DG+)']} </div>
+                            <div><b>Max. State EV Incentive (DG+)</b>: ${props['Max. State EV Incentive (DG+)']} </div>
+                            <div><b>State EVSE Rebate (DG+)</b>: ${props['Savings / Month (DG+)']} </div>
+                            <div><b>Avg. Retail Cost of Electricity, $/kWh (EIA)</b>: ${props['Avg. Retail Cost of Electricity, $/kWh (EIA)']} </div>
+                            <div><b>Avg. Cost / Gallon of Gas (EIA)</b>: ${props['Avg. Cost / Gallon of Gas (EIA)']} </div>
+                        </div>
+                        `
+                new mapboxgl.Popup()
+                    .setLngLat(e.lngLat)
+                    .setHTML(text)
+                    .addTo(map);
+
+
+            })
+            map.on('mouseenter', layerName, () => {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+
+            // Change it back to a pointer when it leaves.
+            map.on('mouseleave', layerName, () => {
+                map.getCanvas().style.cursor = '';
+            });
+
+        });
+
+        fullscreen.addEventListener('click', toggleFullscreen)
+        function toggleFullscreen() {
+            let elem = document.getElementById("mapcontainer");
+            if (!document.fullscreenElement) {
+                elem.requestFullscreen().catch((err) => {
+                    alert(`Error attempting to enable fullscreen mode: ${err.message} (${err.name})`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+
+        function generateLegend(min, max, legendDiv, colorFunc) {
+
+            const step = 25
+            const stepCount = Math.ceil(max / step)
+            const divs = [...Array(stepCount).keys()].map((d, key) => {
+
+                console.log('key', key, stepCount, (step * key));
+                if ((step * key + 1) < min) return;
+
+                const val = (1 + step * key).toFixed()
+                const div = document.createElement("div")
+                div.className = "square-container"
+
+                const text = document.createElement("div")
+                text.className = "square-text"
+                text.innerText = (step * (key + 1)) > max ? `$${val} + ` : `$${val} - $${step * (key + 1)}`
+
+                const sq = document.createElement("div")
+                sq.className = "square"
+                sq.style.backgroundColor = (key + 1) === stepCount ? colorFunc(max) : colorFunc((step * key) + step / 2) //if it is the last square, use max value
+                sq.style.opacity = 0.9
+
+                div.appendChild(sq)
+                div.appendChild(text)
+
+                legendDiv.appendChild(div)
+                return div
+            })
+
+        }
+
+        function clear(str) {
+            if (!str) return "";
+            return str.replaceAll(/[\,\.]/g, " ").replace(/[\s]{2,}/, " ").trim().toLowerCase()
+        }
+
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Add a polygon to a map using a GeoJSON source</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.12.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.12.0/mapbox-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,600,300" rel="stylesheet" type="text/css">
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font: normal 13px/20px 'Open Sans';
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+
+        .popup-main {
+            padding: 5px;
+            margin: 5px;
+        }
+
+        .mapboxgl-map {
+            font: normal 13px/20px 'Open Sans' !important;
+        }
+
+        .map-overlay {
+            position: absolute;
+            width: 30%;
+            top: 0;
+            left: 0;
+            padding: 10px;
+        }
+
+        .map-overlay .map-overlay-inner {
+            background-color: #fff;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .map-overlay label {
+            display: flex;
+            margin: 0 0 10px;
+            width: fit-content;
+        }
+
+        .map-overlay #slider {
+            background-color: transparent;
+            display: inline-block;
+            width: 100%;
+            position: relative;
+            margin: 0;
+            cursor: ew-resize;
+        }
+
+        .square-container {
+            display: flex;
+            width: 100%;
+            flex-direction: row;
+        }
+
+        .square-text {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-left: 10px
+        }
+
+        .square {
+            display: flex;
+            height: 25px;
+            width: 25px;
+        }
+
+        #legend {
+            display: flex;
+            flex-direction: column;
+        }
+
+        h3,
+        h4 {
+            margin: 0;
+        }
+
+        .legend-container {
+            margin: 5px 0 5px 0;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="map"></div>
+    <div class="map-overlay top">
+        <div class="map-overlay-inner">
+            <h3>Installed Community Solar Capacity by State</h3>
+            <h4>Source: U.S. EIA</h4>
+            <!-- <label>Layer opacity: <span id="slider-value">100%</span></label>
+            <input id="slider" type="range" min="0" max="100" step="0" value="100"> -->
+            <div class="legend-container">
+                Megawatts (MW)
+                <div id="legend"></div>
+            </div>
+            <label>Borders: <input id="borders" type="checkbox" checked></label>
+        </div>
+    </div>
+
+    <script>
+        const legendDiv = document.getElementById('legend');
+        const bordersCheckbox = document.getElementById('borders');
+        const slider = document.getElementById('slider');
+        const sliderValue = document.getElementById('slider-value');
+        const layerName = 'states-layer'
+
+        const mainData = {
+            sprData: []
+        }
+
+        mapboxgl.accessToken = 'pk.eyJ1Ijoic3dlcnQiLCJhIjoiY2s3bHNtdjF2MDJ1eTNmcGowanU5MHR4ZiJ9.hzhWj9bhgD5itpWAPc3nNA';
+        const map = new mapboxgl.Map({
+            container: 'map', // container ID
+            // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
+            style: 'mapbox://styles/mapbox/light-v11',
+            center: { lng: -99.48299257741193, lat: 40.92230044374887 },
+            zoom: 3.5,// starting zoom,
+            projection: "mercator"
+        });
+
+        map.on('load', () => {
+
+            map.addSource('states', {
+                'type': 'geojson',
+                'data': { type: 'FeatureCollection', features: Array(0) }
+            });
+
+            // Add a layer showing the state polygons.
+            map.addLayer({
+                'id': 'states-layer',
+                'type': 'fill',
+                'source': 'states',
+                'paint': {
+                    // 'fill-color': 'rgba(200, 100, 240, 0.8)',
+                    'fill-outline-color': 'rgba(255, 255, 255, .5)'
+                }
+            });
+
+
+            Promise.all([
+                d3.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vT_idWhAJ_8qbUs4my2Am-A8B5FOP-M3of5JlG8Rba56-2d_L4I1ZLUVsSdSH-TiuHTqOOl5V99VYtj/pub?output=csv"),
+                fetch("/base/s_22mr22.json").then(data => data.json())
+            ]).then(data => {
+
+                console.log('data', data);
+                const [sprData, mapData] = data
+                mainData.sprData.push(...sprData)
+
+                map.getSource("states").setData(mapData)
+
+                const avrPrice = sprData.map(d => +d['Total']).filter(d => !isNaN(d))
+                const namesSpr = sprData.map(d => d.State)
+                const min = Math.min(...avrPrice)
+                const max = Math.max(...avrPrice)
+                const myColor = d3.scaleLinear().domain([min, max]).range(["orange", "red"])
+
+                generateLegend(min, max, legendDiv, myColor)
+
+                const filtersArray = []
+                sprData
+                    .filter(d => !isNaN(+d['Total']) && +d['Total'] > 0)
+                    .map(d => {
+                        const filter = [['==', ['get', "STATE"], d.State], myColor(+d['Total'])]
+                        filtersArray.push(...filter)
+                    })
+                map.setPaintProperty(layerName, "fill-color", [
+                    'case',
+                    ...filtersArray,
+                    "transparent"
+                ])
+                map.setPaintProperty(layerName, "fill-opacity", 0.7)
+                //map.setPaintProperty(layerName, "fill-outline-color", "white")
+                //map.setPaintProperty(layerName, "fill-outline-color", "transparent")
+            })
+
+            map.on("click", layerName, e => {
+
+                const stateISO = e.features[0].properties.STATE
+                const stateName = e.features[0].properties.NAME
+
+                const res = mainData.sprData
+                    .find(spr => spr.State === stateISO)
+
+                const value = (+res['Total']).toLocaleString('en-US', {
+                    style: 'currency',
+                    currency: 'USD',
+                }).replace("$", "")
+
+                const text = res ? `
+                        <div class="popup-main">
+                            <div><b>${stateName}</b></div>
+                            <div> ${value} MW</div >
+                        </div >
+            `
+                    :
+                    `
+            < div class= "popup-main" >
+                            <div><b>${stateName}</b></div>
+                            <div>NO DATA</div>
+                        </div >
+            `
+
+                new mapboxgl.Popup()
+                    .setLngLat(e.lngLat)
+                    .setHTML(text)
+                    .addTo(map);
+
+
+            })
+            map.on('mouseenter', layerName, () => {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+
+            // Change it back to a pointer when it leaves.
+            map.on('mouseleave', layerName, () => {
+                map.getCanvas().style.cursor = '';
+            });
+
+            bordersCheckbox.addEventListener('input', (e) => {
+                const val = bordersCheckbox.checked ? "white" : "transparent"
+                map.setPaintProperty(layerName, "fill-outline-color", val)
+            })
+
+            // slider.addEventListener('input', (e) => {
+            //     map.setPaintProperty(
+            //         layerName,
+            //         'fill-opacity',
+            //         parseInt(e.target.value, 10) / 100
+            //     );
+            //     // Value indicator
+            //     sliderValue.textContent = e.target.value + '%';
+            // });
+
+        });
+
+        function generateLegend(min, max, legendDiv, colorFunc) {
+
+            console.log('min,max', min, max);
+            const step = 500
+            const stepCount = Math.ceil(max / 500)
+            const divs = [...Array(stepCount).keys()].map((d, key) => {
+
+                console.log('key', key, stepCount, (step * key) + step / 2);
+                const val = (1 + step * key).toFixed()
+                const div = document.createElement("div")
+                div.className = "square-container"
+
+                const text = document.createElement("div")
+                text.className = "square-text"
+                text.innerText = (step * (key + 1)) > max ? `${val} + ` : `${val} - ${step * (key + 1)}`
+
+                const sq = document.createElement("div")
+                sq.className = "square"
+                sq.style.backgroundColor = (key + 1) === stepCount ? colorFunc(max) : colorFunc((step * key) + step / 2) //if it is the last square, use max value
+                sq.style.opacity = 0.7
+
+                div.appendChild(sq)
+                div.appendChild(text)
+
+                legendDiv.appendChild(div)
+                return div
+            })
+
+        }
+
+        function clear(str) {
+            // console.log('str', str);
+            if (!str) return "";
+            return str.replaceAll(/[\,\.]/g, " ").replace(/[\s]{2,}/, " ").trim().toLowerCase()
+        }
+
+    </script>
+
+</body>
+
+</html>
