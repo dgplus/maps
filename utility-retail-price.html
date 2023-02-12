@@ -62,7 +62,7 @@
         map.on('load', () => {
 
             Promise.all([
-                d3.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vRJl3kVNDkwcixR99TBWBAvNtitzbGSSWiED75UD85wyKM0pVPJkeJ8mHTTbNuZB4l1oqPwls9OdfpO/pub?output=csv"),
+                d3.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vTpREYfOKz_1Q7BpOQzZRzgJVD16dBRkiCnd-Ri_1NU73mZ47_gsE37H96sD3lVAx0O5Tpywl-7NYAO/pub?gid=410626648&single=true&output=csv"),
             ]).then(data => {
                 console.log('data', data);
                 const [sprData, mapData] = data

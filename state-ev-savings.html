@@ -42,7 +42,7 @@
             sprData: []
         }
 
-        mapboxgl.accessToken = 'pk.eyJ1Ijoic3dlcnQiLCJhIjoiY2s3bHNtdjF2MDJ1eTNmcGowanU5MHR4ZiJ9.hzhWj9bhgD5itpWAPc3nNA';
+        mapboxgl.accessToken = 'pk.eyJ1IjoiZGdwbHVzZGVzaWduIiwiYSI6ImNsZTF2bmZnbzBoeGkzb28yOW5kemF0ZHEifQ.wcLBXkbgle9WkYCnzSM8Cw';
         const map = new mapboxgl.Map({
             container: 'map', // container ID
             // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
@@ -84,7 +84,7 @@
                 const namesSpr = sprData.map(d => d.State)
                 const min = Math.min(...avrPrice)
                 const max = Math.max(...avrPrice)
-                const myColor = d3.scaleLinear().domain([min, max]).range(["#E6F3BA", "#9DBF22"])
+                const myColor = d3.scaleLinear().domain([min, max]).range(["#F9FCEE", "#47b970"])
 
                 generateLegend(min, max, legendDiv, myColor)
 

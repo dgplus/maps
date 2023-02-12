@@ -11,32 +11,28 @@
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,600,300" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="/css/map-styles.css">
-
-
-    
 </head>
 
 <body>
     <div id="mapcontainer">
-
-    <div id="map"></div>
-    <div class="map-overlay top">
-        <div class="map-overlay-inner">
-            <h3>Installed Community Solar Capacity by State</h3>
-            <h4>Megawatts (MW)</h4>
-            <!-- <label>Layer opacity: <span id="slider-value">100%</span></label>
+        <div id="map"></div>
+        <div class="map-overlay top">
+            <div class="map-overlay-inner">
+                <h3>Installed Community Solar Capacity by State</h3>
+                <h4>Megawatts (MW)</h4>
+                <!-- <label>Layer opacity: <span id="slider-value">100%</span></label>
             <input id="slider" type="range" min="0" max="100" step="0" value="100"> -->
-            <div class="legend-container">
-                
-                <div id="legend" class="column"></div>
-            </div>
-            <label>Borders: <input id="borders" type="checkbox" checked></label>
-        </div>
-        
-    </div>
-            <div id="fullscreen">Full screen</div>
-    </div>
+                <div class="legend-container">
 
+                    <div id="legend" class="column"></div>
+                </div>
+                <label>Borders:
+                    <input id="borders" type="checkbox" checked>
+                </label>
+            </div>
+        </div>
+        <div id="fullscreen">Full screen</div>
+    </div>
 
     <script>
         const legendDiv = document.getElementById('legend');
@@ -45,18 +41,20 @@
         const sliderValue = document.getElementById('slider-value');
         const layerName = 'states-layer'
         const fullscreen = document.getElementById('fullscreen');
-
         const mainData = {
             sprData: []
         }
 
-        mapboxgl.accessToken = 'pk.eyJ1Ijoic3dlcnQiLCJhIjoiY2s3bHNtdjF2MDJ1eTNmcGowanU5MHR4ZiJ9.hzhWj9bhgD5itpWAPc3nNA';
+        mapboxgl.accessToken = 'pk.eyJ1IjoiZGdwbHVzZGVzaWduIiwiYSI6ImNsZTF2bGtuczFwYXYzcnBrYm5xM2VwZHUifQ.bsWl7gNOVYm4-_62gDEjqA';
         const map = new mapboxgl.Map({
             container: 'map', // container ID
             // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
             style: 'mapbox://styles/mapbox/light-v11',
-            center: { lng: -99.48299257741193, lat: 40.92230044374887 },
-            zoom: 3.5,// starting zoom,
+            center: {
+                lng: -99.48299257741193,
+                lat: 40.92230044374887
+            },
+            zoom: 3.5, // starting zoom,
             projection: "mercator"
         });
 
@@ -64,7 +62,10 @@
 
             map.addSource('states', {
                 'type': 'geojson',
-                'data': { type: 'FeatureCollection', features: Array(0) }
+                'data': {
+                    type: 'FeatureCollection',
+                    features: Array(0)
+                }
             });
 
             // Add a layer showing the state polygons.
@@ -80,16 +81,14 @@
 
 
             Promise.all([
-                d3.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vT_idWhAJ_8qbUs4my2Am-A8B5FOP-M3of5JlG8Rba56-2d_L4I1ZLUVsSdSH-TiuHTqOOl5V99VYtj/pub?output=csv"),
+                d3.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vQmnSsagiUa4BUj54EnHA9PG_kkRfM0U7vCTpHzilswYIONTr6P2AspBCyPc95O7Oj8HDd7Dbm7ZD1G/pub?gid=1984681308&single=true&output=csv"),
                 fetch("/base/s_22mr22.json").then(data => data.json())
             ]).then(data => {
 
                 console.log('data', data);
                 const [sprData, mapData] = data
                 mainData.sprData.push(...sprData)
-
                 map.getSource("states").setData(mapData)
-
                 const avrPrice = sprData.map(d => +d['Total']).filter(d => !isNaN(d))
                 const namesSpr = sprData.map(d => d.State)
                 const min = Math.min(...avrPrice)
@@ -102,7 +101,9 @@
                 sprData
                     .filter(d => !isNaN(+d['Total']) && +d['Total'] > 0)
                     .map(d => {
-                        const filter = [['==', ['get', "STATE"], d.State], myColor(+d['Total'])]
+                        const filter = [
+                            ['==', ['get', "STATE"], d.State], myColor(+d['Total'])
+                        ]
                         filtersArray.push(...filter)
                     })
                 map.setPaintProperty(layerName, "fill-color", [
@@ -111,8 +112,8 @@
                     "transparent"
                 ])
                 map.setPaintProperty(layerName, "fill-opacity", 0.7)
-                //map.setPaintProperty(layerName, "fill-outline-color", "white")
-                //map.setPaintProperty(layerName, "fill-outline-color", "transparent")
+                    //map.setPaintProperty(layerName, "fill-outline-color", "white")
+                    //map.setPaintProperty(layerName, "fill-outline-color", "transparent")
             })
 
             map.on("click", layerName, e => {
@@ -133,8 +134,7 @@
                             <div><b>${stateName}</b></div>
                             <div> ${value} MW</div >
                         </div >
-            `
-                    :
+            ` :
                     `
             < div class= "popup-main" >
                             <div><b>${stateName}</b></div>
@@ -176,6 +176,7 @@
         });
 
         fullscreen.addEventListener('click', toggleFullscreen)
+
         function toggleFullscreen() {
             let elem = document.getElementById("mapcontainer");
             if (!document.fullscreenElement) {
@@ -188,7 +189,7 @@
         }
 
 
-        
+
         function generateLegend(min, max, legendDiv, colorFunc) {
 
             console.log('min,max', min, max);
@@ -224,7 +225,6 @@
             if (!str) return "";
             return str.replaceAll(/[\,\.]/g, " ").replace(/[\s]{2,}/, " ").trim().toLowerCase()
         }
-
     </script>
 
 </body>
