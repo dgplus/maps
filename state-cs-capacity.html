@@ -3,119 +3,40 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Add a polygon to a map using a GeoJSON source</title>
+    <title>Map: Community Solar Capacity by State | DG+</title>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.12.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.12.0/mapbox-gl.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,600,300" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="/css/map-styles.css">
 
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font: normal 13px/20px 'Open Sans';
-        }
 
-        #map {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 100%;
-        }
-
-        .popup-main {
-            padding: 5px;
-            margin: 5px;
-        }
-
-        .mapboxgl-map {
-            font: normal 13px/20px 'Open Sans' !important;
-        }
-
-        .map-overlay {
-            position: absolute;
-            width: 30%;
-            top: 0;
-            left: 0;
-            padding: 10px;
-        }
-
-        .map-overlay .map-overlay-inner {
-            background-color: #fff;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-            border-radius: 3px;
-            padding: 10px;
-            margin-bottom: 10px;
-        }
-
-        .map-overlay label {
-            display: flex;
-            margin: 0 0 10px;
-            width: fit-content;
-        }
-
-        .map-overlay #slider {
-            background-color: transparent;
-            display: inline-block;
-            width: 100%;
-            position: relative;
-            margin: 0;
-            cursor: ew-resize;
-        }
-
-        .square-container {
-            display: flex;
-            width: 100%;
-            flex-direction: row;
-        }
-
-        .square-text {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin-left: 10px
-        }
-
-        .square {
-            display: flex;
-            height: 25px;
-            width: 25px;
-        }
-
-        #legend {
-            display: flex;
-            flex-direction: column;
-        }
-
-        h3,
-        h4 {
-            margin: 0;
-        }
-
-        .legend-container {
-            margin: 5px 0 5px 0;
-        }
-    </style>
+    
 </head>
 
 <body>
+    <div id="mapcontainer">
 
     <div id="map"></div>
     <div class="map-overlay top">
         <div class="map-overlay-inner">
             <h3>Installed Community Solar Capacity by State</h3>
-            <h4>Source: U.S. EIA</h4>
+            <h4>Megawatts (MW)</h4>
             <!-- <label>Layer opacity: <span id="slider-value">100%</span></label>
             <input id="slider" type="range" min="0" max="100" step="0" value="100"> -->
             <div class="legend-container">
-                Megawatts (MW)
-                <div id="legend"></div>
+                
+                <div id="legend" class="column"></div>
             </div>
             <label>Borders: <input id="borders" type="checkbox" checked></label>
         </div>
+        
     </div>
+            <div id="fullscreen">Full screen</div>
+    </div>
+
 
     <script>
         const legendDiv = document.getElementById('legend');
@@ -123,6 +44,7 @@
         const slider = document.getElementById('slider');
         const sliderValue = document.getElementById('slider-value');
         const layerName = 'states-layer'
+        const fullscreen = document.getElementById('fullscreen');
 
         const mainData = {
             sprData: []
@@ -253,6 +175,20 @@
 
         });
 
+        fullscreen.addEventListener('click', toggleFullscreen)
+        function toggleFullscreen() {
+            let elem = document.getElementById("mapcontainer");
+            if (!document.fullscreenElement) {
+                elem.requestFullscreen().catch((err) => {
+                    alert(`Error attempting to enable fullscreen mode: ${err.message} (${err.name})`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+
+        
         function generateLegend(min, max, legendDiv, colorFunc) {
 
             console.log('min,max', min, max);

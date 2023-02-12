@@ -3,122 +3,36 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Add a polygon to a map using a GeoJSON source</title>
+    <title>Map: Retail Price of Electricity by Utility | DG+</title>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.12.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.12.0/mapbox-gl.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,600,300" rel="stylesheet" type="text/css">
+    <link href="css/map-styles.css" rel="stylesheet">
 
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font: normal 13px/20px 'Open Sans';
-        }
-
-        #map {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 100%;
-        }
-
-        .mapboxgl-map {
-            font: inherit !important;
-        }
-
-        .popup-main {
-            /* border: 1px solid #ccc; */
-            padding: 5px;
-            margin: 5px;
-        }
-
-        .mapboxgl-map {
-            font: normal 13px/20px 'Open Sans' !important;
-        }
-
-        .map-overlay {
-            position: absolute;
-            width: 30%;
-            top: 0;
-            left: 0;
-            padding: 10px;
-        }
-
-        .map-overlay .map-overlay-inner {
-            background-color: #fff;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-            border-radius: 3px;
-            padding: 10px;
-            margin-bottom: 10px;
-        }
-
-
-        .map-overlay #slider {
-            background-color: transparent;
-            display: inline-block;
-            width: 100%;
-            position: relative;
-            margin: 0;
-            cursor: ew-resize;
-        }
-
-        .square-container {
-            display: flex;
-            flex: 1;
-            height: 35px;
-            width: 10%;
-            flex-direction: column;
-        }
-
-        .square-text {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .square {
-            display: flex;
-            height: 20px;
-        }
-
-        #legend {
-            display: flex;
-        }
-
-        .checkbox-container {
-            display: flex;
-            margin-top: 5px;
-            display: flex;
-            flex-direction: row;
-            justify-content: flex-start;
-            align-items: center;
-        }
-
-        h3,
-        h4 {
-            margin: 0;
-        }
-    </style>
 </head>
 
 <body>
 
+    <div id="mapcontainer">
     <div id="map"></div>
     <div class="map-overlay top">
         <div class="map-overlay-inner">
             <h3>Average Retail Price of Electricity by Utility</h3>
-            <h4>Source: U.S. EIA</h4>
+            <h4>cents/kWh</h4>
             <!-- <label>Layer opacity: <span id="slider-value">100%</span></label>
             <input id="slider" type="range" min="0" max="100" step="0" value="50"> -->
-            <div>cents/kWh</div>
             <div id="legend"></div>
             <div id="filters"></div>
             <label>Borders: <input id="borders" type="checkbox" checked></label>
         </div>
 
+    </div>
+                    <div id="fullscreen">Full screen</div>
+
+        
     </div>
 
     <script>
@@ -129,6 +43,7 @@
         const sliderValue = document.getElementById('slider-value');
         const layerName = 'electric-retail-service-terri-c0krej'
 
+        const fullscreen = document.getElementById('fullscreen');
         const mainData = {
             sprData: [],
             filters: new Set()
@@ -293,6 +208,18 @@
             map.setFilter(layerName, ["in", "TYPE", ...mainData.filters]);
         }
 
+            fullscreen.addEventListener('click', toggleFullscreen)
+        function toggleFullscreen() {
+            let elem = document.getElementById("mapcontainer");
+            if (!document.fullscreenElement) {
+                elem.requestFullscreen().catch((err) => {
+                    alert(`Error attempting to enable fullscreen mode: ${err.message} (${err.name})`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+        
         function generateLegend(min, max, legendDiv, colorFunc) {
 
             console.log('min,max', min, max);
@@ -301,7 +228,7 @@
             const divs = [...Array(numberOfbins).keys()].map((d, key) => {
                 const val = 10 * (key + 1)
                 const div = document.createElement("div")
-                div.className = "square-container"
+                div.className = "square-container-row"
                 // div.style.borderLeft = "1px solid black"
 
                 const text = document.createElement("div")
