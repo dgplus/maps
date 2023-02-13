@@ -81,7 +81,7 @@
 
             Promise.all([
                 d3.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vQmnSsagiUa4BUj54EnHA9PG_kkRfM0U7vCTpHzilswYIONTr6P2AspBCyPc95O7Oj8HDd7Dbm7ZD1G/pub?gid=1984681308&single=true&output=csv"),
-                fetch("/base/s_22mr22.json").then(data => data.json())
+                fetch("base/s_22mr22.json").then(data => data.json())
             ]).then(data => {
 
                 console.log('data', data);
