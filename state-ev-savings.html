@@ -101,7 +101,6 @@
                 });
                 const noPR = mapData.features.filter(el => el.properties.NAME !== 'Puerto Rico' && el.properties.NAME !== 'Virgin Islands')
                 map.getSource("states").setData(turf.featureCollection(noPR))
-
             })
 
             map.on("click", layerName, e => {
