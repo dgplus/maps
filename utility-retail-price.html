@@ -17,22 +17,22 @@
 <body>
 
     <div id="mapcontainer">
-    <div id="map"></div>
-    <div class="map-overlay top">
-        <div class="map-overlay-inner">
-            <h3>Average Retail Price of Electricity by Utility</h3>
-            <h4>cents/kWh</h4>
-            <!-- <label>Layer opacity: <span id="slider-value">100%</span></label>
+        <div id="map"></div>
+        <div class="map-overlay top">
+            <div class="map-overlay-inner">
+                <h3>Average Retail Price of Electricity by Utility</h3>
+                <h4>cents/kWh</h4>
+                <!-- <label>Layer opacity: <span id="slider-value">100%</span></label>
             <input id="slider" type="range" min="0" max="100" step="0" value="50"> -->
-            <div id="legend"></div>
-            <div id="filters"></div>
-            <label>Borders: <input id="borders" type="checkbox" checked></label>
+                <div id="legend"></div>
+                <div id="filters"></div>
+                <label>Borders: <input id="borders" type="checkbox" checked></label>
+            </div>
+
         </div>
+        <div id="fullscreen">Full screen</div>
 
-    </div>
-                    <div id="fullscreen">Full screen</div>
 
-        
     </div>
 
     <script>
@@ -41,7 +41,7 @@
         const bordersCheckbox = document.getElementById('borders');
         const slider = document.getElementById('slider');
         const sliderValue = document.getElementById('slider-value');
-        const layerName = 'electric-retail-service-terri-c0krej'
+        const layerName = 'electric-retail-service-terri-0nv0yj'
 
         const fullscreen = document.getElementById('fullscreen');
         const mainData = {
@@ -49,11 +49,11 @@
             filters: new Set()
         }
 
-        mapboxgl.accessToken = 'pk.eyJ1Ijoic3dlcnQiLCJhIjoiY2s3bHNtdjF2MDJ1eTNmcGowanU5MHR4ZiJ9.hzhWj9bhgD5itpWAPc3nNA';
+        mapboxgl.accessToken = 'pk.eyJ1IjoiZGdwbHVzZGVzaWduIiwiYSI6ImNsMGhndHJvdjA4aWozZW1xb21tY3VuZGoifQ.R8LGSPakcmmq-FVmRp7_1A';
         const map = new mapboxgl.Map({
             container: 'map', // container ID
             // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
-            style: 'mapbox://styles/swert/clcs1d19e009g14qh4jbcj1jm', // style URL
+            style: 'mapbox://styles/dgplusdesign/cle3z3cqz000m01kbnbx79dyj', // style URL
             center: { lng: -99.48299257741193, lat: 40.92230044374887 },
             zoom: 4.5,// starting zoom,
             projection: "mercator"
@@ -208,7 +208,7 @@
             map.setFilter(layerName, ["in", "TYPE", ...mainData.filters]);
         }
 
-            fullscreen.addEventListener('click', toggleFullscreen)
+        fullscreen.addEventListener('click', toggleFullscreen)
         function toggleFullscreen() {
             let elem = document.getElementById("mapcontainer");
             if (!document.fullscreenElement) {
@@ -219,7 +219,7 @@
                 document.exitFullscreen();
             }
         }
-        
+
         function generateLegend(min, max, legendDiv, colorFunc) {
 
             console.log('min,max', min, max);
