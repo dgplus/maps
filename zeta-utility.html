@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Map: ZETA Utility Brief | DG+</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.12.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.12.0/mapbox-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,600,300" rel="stylesheet" type="text/css">
+    <link href="css/map-styles.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+    <div id="mapcontainer">
+        <div id="map"></div>
+        <div class="map-overlay top">
+            <div class="map-overlay-inner">
+                <h3>Average Retail Price of Electricity by Utility</h3>
+                <h4>cents/kWh</h4>
+                <!-- <label>Layer opacity: <span id="slider-value">100%</span></label>
+            <input id="slider" type="range" min="0" max="100" step="0" value="50"> -->
+                <div id="legend"></div>
+                <div id="filters"></div>
+                <label>Borders: <input id="borders" type="checkbox" checked></label>
+            </div>
+
+        </div>
+        <div id="fullscreen">Full screen</div>
+
+
+    </div>
+
+    <script>
+        const filtersDiv = document.getElementById('filters');
+        const legendDiv = document.getElementById('legend');
+        const bordersCheckbox = document.getElementById('borders');
+        const slider = document.getElementById('slider');
+        const sliderValue = document.getElementById('slider-value');
+        const layerName = 'electric-retail-service-terri-0nv0yj'
+
+        const fullscreen = document.getElementById('fullscreen');
+        const mainData = {
+            sprData: [],
+            filters: new Set()
+        }
+
+        mapboxgl.accessToken = 'pk.eyJ1IjoiZGdwbHVzZGVzaWduIiwiYSI6ImNsMGhndHJvdjA4aWozZW1xb21tY3VuZGoifQ.R8LGSPakcmmq-FVmRp7_1A';
+        const map = new mapboxgl.Map({
+            container: 'map', // container ID
+            // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
+            style: 'mapbox://styles/dgplusdesign/cle3z3cqz000m01kbnbx79dyj', // style URL
+            center: { lng: -99.48299257741193, lat: 40.92230044374887 },
+            zoom: 4.5,// starting zoom,
+            projection: "mercator"
+        });
+
+        map.on('load', () => {
+
+            Promise.all([
+                d3.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vTpREYfOKz_1Q7BpOQzZRzgJVD16dBRkiCnd-Ri_1NU73mZ47_gsE37H96sD3lVAx0O5Tpywl-7NYAO/pub?gid=410626648&single=true&output=csv"),
+            ]).then(data => {
+                console.log('data', data);
+                const [sprData, mapData] = data
+
+                buildOwnershipFilters(sprData)
+
+                mainData.sprData.push(...sprData)
+
+                const priceList = sprData.map(d => +d['Average Price (cents/kWh)']).filter(d => !isNaN(d))
+                const namesSpr = sprData.map(d => clear(d.Entity))
+                const min = Math.min(...priceList)
+                const max = Math.max(...priceList) > 49 ? 47 : Math.max(...priceList)
+                const myColor = d3.scaleLinear().domain([min, max]).range(["yellow", "red"])
+
+
+                generateLegend(min, max, legendDiv, myColor)
+
+                const filtersArray = []
+                sprData
+                    .filter(d => !isNaN(+d['Average Price (cents/kWh)']))
+                    .map(d => {
+                        const filter = [['==', ['get', "NAME"], d.Entity.toUpperCase()], myColor(+d['Average Price (cents/kWh)'])]
+                        filtersArray.push(...filter)
+                    })
+                map.setPaintProperty(layerName, "fill-color", [
+                    'case',
+                    ...filtersArray,
+                    "transparent"
+                ])
+                map.setPaintProperty(layerName, "fill-opacity", 0.7)
+                map.setPaintProperty(layerName, "fill-outline-color", "white")
+                //map.setPaintProperty(layerName, "fill-outline-color", "transparent")
+            })
+
+
+            map.on("click", layerName, e => {
+                console.log('e', e);
+                const features = map.queryRenderedFeatures(e.point);
+                const names = features.map((feat) => {
+                    console.log('feat.properties.TYPE===>', feat.properties.TYPE);
+                    return feat.properties.NAME;
+                });
+                const uniqueNames = [...new Set(names)]
+                console.log('uniqueNames', uniqueNames);
+
+                const descr = uniqueNames
+                    .filter(name => name)
+                    .map(name => {
+
+                        console.log('name', name);
+                        const res = mainData.sprData
+                            .filter(spr => spr.Entity && spr.Entity !== "")
+                            .find(spr => clear(spr.Entity) === clear(name))
+
+                        const text = res ? `
+                        <div class="popup-main">
+                            <div><b>${res['Entity']}</b></div>
+                            <div>Customers (Count): ${res['Customers (Count)']}</div>
+                            <div>Ownership: ${res['Ownership']}</div>
+                            <div>Sales (Megawatthours): ${res['Sales (Megawatthours)']}</div>
+                            <div>Average Price (cents/kWh): ${res['Average Price (cents/kWh)']}</div>
+                        </div>
+                            `
+                            :
+                            `
+                        <div class="popup-main">
+                            <div><b>${name}</b></div>
+                            <div>NO DATA</div>
+                        </div>
+                        `
+
+                        return text
+                    }).join("")
+
+                // Copy coordinates array.
+                new mapboxgl.Popup()
+                    .setLngLat(e.lngLat)
+                    .setHTML(descr)
+                    .addTo(map);
+
+
+            })
+            map.on('mouseenter', layerName, () => {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+
+            // Change it back to a pointer when it leaves.
+            map.on('mouseleave', layerName, () => {
+                map.getCanvas().style.cursor = '';
+            });
+
+            bordersCheckbox.addEventListener('input', (e) => {
+                const val = bordersCheckbox.checked ? "white" : "transparent"
+                map.setPaintProperty(layerName, "fill-outline-color", val)
+            })
+
+            // slider.addEventListener('input', (e) => {
+            //     map.setPaintProperty(
+            //         layerName,
+            //         'fill-opacity',
+            //         parseInt(e.target.value, 10) / 100
+            //     );
+            //     // Value indicator
+            //     sliderValue.textContent = e.target.value + '%';
+            // });
+
+        });
+
+        function buildOwnershipFilters(data) {
+
+            const uniqueNames = [...new Set(data.map(d => d.Ownership.toUpperCase()).filter(d => d !== ""))]
+
+            uniqueNames.forEach(d => {
+
+                const div = document.createElement("div")
+                div.className = "checkbox-container"
+                const input = document.createElement("input")
+                input.type = "checkbox"
+                input.className = "checkbox"
+                input.id = d
+                if (d === "INVESTOR OWNED") {
+                    mainData.filters.add(d)
+                    input.checked = true
+                } else {
+                    input.checked = false
+                }
+                input.addEventListener('input', (e) => {
+                    console.log('input', input.checked);
+                    mainData.filters.has(d) ? mainData.filters.delete(d) : mainData.filters.add(d)
+                    map.setFilter(layerName, ["in", "TYPE", ...mainData.filters]);
+                })
+
+                const label = document.createElement("label")
+                label.htmlFor = d
+                label.innerText = d
+
+                div.appendChild(input)
+                div.appendChild(label)
+                filtersDiv.appendChild(div)
+                // return div
+            })
+
+            map.setFilter(layerName, ["in", "TYPE", ...mainData.filters]);
+        }
+
+        fullscreen.addEventListener('click', toggleFullscreen)
+        function toggleFullscreen() {
+            let elem = document.getElementById("mapcontainer");
+            if (!document.fullscreenElement) {
+                elem.requestFullscreen().catch((err) => {
+                    alert(`Error attempting to enable fullscreen mode: ${err.message} (${err.name})`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        function generateLegend(min, max, legendDiv, colorFunc) {
+
+            console.log('min,max', min, max);
+            const numberOfbins = Math.floor(max / 10)
+
+            const divs = [...Array(numberOfbins).keys()].map((d, key) => {
+                const val = 10 * (key + 1)
+                const div = document.createElement("div")
+                div.className = "square-container-row"
+                // div.style.borderLeft = "1px solid black"
+
+                const text = document.createElement("div")
+                text.className = "square-text"
+                text.innerText = val
+
+                const sq = document.createElement("div")
+                sq.className = "square"
+                sq.style.backgroundColor = colorFunc(val)
+                sq.style.opacity = 0.7
+
+                div.appendChild(sq)
+                div.appendChild(text)
+
+                legendDiv.appendChild(div)
+                return div
+            })
+        }
+
+
+
+        function clear(str) {
+            // console.log('str', str);
+            if (!str) return "";
+            return str.replaceAll(/[\,\.]/g, " ").replace(/[\s]{2,}/, " ").trim().toLowerCase()
+        }
+
+    </script>
+
+</body>
+
+</html>
